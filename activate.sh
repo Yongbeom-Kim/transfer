@@ -7,6 +7,7 @@ fi
 ENV=$1
 
 ENV_FILE=$(ls .env.$ENV* 2>/dev/null | head -n 1)
+ENV=$(echo $ENV_FILE | grep -Eo '[^.]+$')
 
 if [ ! -f "$ENV_FILE" ]; then
 	echo "Environment file .env.$ENV not found"
