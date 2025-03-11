@@ -23,7 +23,12 @@ func main() {
 	}
 
 	fmt.Printf("Starting server on port %s\n", port)
-	err := http.ListenAndServe(":"+port, middleware.CORSMiddleware(middleware.Logger(mux)))
+	err := http.ListenAndServe(":"+port,
+		middleware.Compose(
+			middleware.CORSMiddleware,
+			middleware.Logger,
+		)(mux),
+	)
 	if err == http.ErrServerClosed {
 		fmt.Println("Server closed")
 	} else if err != nil {
