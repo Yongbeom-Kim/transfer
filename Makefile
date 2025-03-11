@@ -8,6 +8,6 @@ help:  ## Display this help
 ##@ Development
 backend-run:  ## Run the backend server
 	set -a && source .env.development && set +a && \
-		go run backend/server.go
+		cd backend && go run server.go
 
 

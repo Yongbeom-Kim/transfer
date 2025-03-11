@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
+
+	"github.com/Yongbeom-Kim/transfer/backend/internal/middleware"
 )
 
 func health(w http.ResponseWriter, r *http.Request) {
-	slog.Info("Health check", "method", r.Method, "path", r.URL.Path)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 }
@@ -23,7 +23,7 @@ func main() {
 	}
 
 	fmt.Printf("Starting server on port %s\n", port)
-	err := http.ListenAndServe(":"+port, mux)
+	err := http.ListenAndServe(":"+port, middleware.CORSMiddleware(middleware.Logger(mux)))
 	if err == http.ErrServerClosed {
 		fmt.Println("Server closed")
 	} else if err != nil {
