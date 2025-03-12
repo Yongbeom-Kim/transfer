@@ -19,6 +19,10 @@ terraform {
       source = "hashicorp/google"
       version = "6.24.0"
     }
+    cockroach = {
+      source = "cockroachdb/cockroach"
+      version = "1.11.2"
+    }
   }
 }
 
@@ -30,4 +34,9 @@ provider "google" {
     environment = var.environment
     project = var.project_id
   }
+}
+
+
+provider "cockroach" {
+  # Configuration options
 }
