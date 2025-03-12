@@ -30,11 +30,16 @@ CREATE OR REPLACE PROCEDURE upload.update_part_status(
     p_part_number INT,
     p_new_status upload.part_status
 ) AS $$
+DECLARE
+    part_updated UUID := NULL;
 BEGIN
     UPDATE upload.parts
-    SET status = p_new_status
-    WHERE upload_id = p_upload_id AND part_number = p_part_number;
-
+        SET status = p_new_status
+        WHERE upload_id = p_upload_id AND part_number = p_part_number
+        RETURNING upload_id INTO part_updated;
+    IF part_updated IS NULL THEN
+        RAISE EXCEPTION 'Part status not found: %, %', p_upload_id, p_part_number;
+    END IF;
     IF (SELECT COUNT(*) FROM upload.parts WHERE upload_id = p_upload_id AND status != 'uploaded') = 0 THEN
         UPDATE upload.uploads
         SET status = 'completed'
@@ -51,9 +56,16 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE PROCEDURE upload.delete_upload(
     p_upload_id UUID
 ) AS $$
-    DELETE FROM upload.uploads WHERE id = p_upload_id;
-    -- Parts are deleted by ON DELETE CASCADE
-$$ LANGUAGE sql;
+DECLARE
+    deleted_count UUID := NULL;
+BEGIN
+    DELETE FROM upload.uploads WHERE id = p_upload_id RETURNING id INTO deleted_count;
+    IF deleted_count IS NULL THEN
+        RAISE EXCEPTION 'Upload not found: %', p_upload_id;
+    END IF;
+    -- Upload parts are deleted by ON DELETE CASCADE
+END
+$$ LANGUAGE plpgsql;
 
 -- Get keys for upload parts
 CREATE FUNCTION upload.get_upload_part_object_keys(
