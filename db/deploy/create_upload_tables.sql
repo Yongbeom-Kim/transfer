@@ -10,7 +10,7 @@ CREATE TYPE upload.part_status AS ENUM ('pending', 'uploaded', 'failed');
 
 
 CREATE TABLE upload.uploads (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     status upload.upload_status NOT NULL DEFAULT 'pending',
     -- for object storage
