@@ -1,0 +1,7 @@
+%syntax-version=1.0.0
+%project=db
+%uri=github.com/Yongbeom-Kim/transfer/db
+
+create_upload_schema 2025-03-12T04:05:43Z Kim Yongbeom <yongbeom.sg@gmail.com> # feat: Create upload create_upload_schema
+create_upload_tables [create_upload_schema] 2025-03-12T04:10:15Z Kim Yongbeom <yongbeom.sg@gmail.com> # feat: Create tables for managing uploaded files
+create_upload_table_procedures [create_upload_tables] 2025-03-12T06:18:57Z Kim Yongbeom <yongbeom.sg@gmail.com> # feat: Add procedures and triggers for upload tables

@@ -10,9 +10,13 @@ backend-run:  ## Run the backend server
 	set -a && source .env.development && set +a && \
 		cd backend && go run server.go
 
+psql:
+	psql "$(COCKROACH_CONNECTION_STRING)"
+
 backend-test:  ## Run the backend tests
 	set -a && source .env.development && set +a && \
 		cd backend && go test -v ./...
+
 
 ##@ Terraform
 _tf-cmd:

@@ -1,0 +1,15 @@
+[core]
+	engine = cockroach
+	# plan_file = sqitch.plan
+	# top_dir = .
+# [engine "pg"]
+	# target = db:pg:
+	# registry = sqitch
+	# client = /usr/bin/psql
+[target "dev"]
+	# From terraform infrastructure
+	uri = db:cockroach://cluster.xyz.aws-ap-southeast-1.cockroachlabs.cloud:26257/db?sslmode=verify-full
+[deploy]
+	verify = true
+[rebase]
+	verify = true
