@@ -16,8 +16,8 @@ BEGIN
     IF NOT EXISTS(SELECT upload.sqitch_get_procedure('create_new_upload', 'PROCEDURE')) THEN
         RAISE EXCEPTION 'CREATE_NEW_UPLOAD PROCEDURE DOES NOT EXIST';
     END IF;
-    IF NOT EXISTS(SELECT upload.sqitch_get_procedure('update_part_status', 'PROCEDURE')) THEN
-        RAISE EXCEPTION 'UPDATE_PART_STATUS PROCEDURE DOES NOT EXIST';
+    IF NOT EXISTS(SELECT upload.sqitch_get_procedure('update_part', 'PROCEDURE')) THEN
+        RAISE EXCEPTION 'UPDATE_PART PROCEDURE DOES NOT EXIST';
     END IF;
     IF NOT EXISTS(SELECT upload.sqitch_get_procedure('delete_upload', 'PROCEDURE')) THEN
         RAISE EXCEPTION 'DELETE_UPLOAD PROCEDURE DOES NOT EXIST';

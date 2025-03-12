@@ -3,7 +3,7 @@
 BEGIN;
 
 DROP PROCEDURE upload.delete_upload;
-DROP PROCEDURE upload.update_part_status;
+DROP PROCEDURE upload.update_part;
 DROP PROCEDURE upload.create_new_upload;
 DROP FUNCTION upload.get_upload_part_object_keys;
 

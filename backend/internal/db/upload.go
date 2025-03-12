@@ -5,8 +5,40 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
+)
+
+type Upload struct {
+	ID         uuid.UUID
+	PartsCount int
+	Size       int
+	MimeType   string
+	Status     UploadStatus
+	CreatedAt  time.Time
+}
+
+type Part struct {
+	ID         uuid.UUID
+	UploadID   uuid.UUID
+	PartNumber int
+	Status     PartStatus
+	ObjectKey  string
+	CreatedAt  time.Time
+	UploadedAt *time.Time
+	ByteOffset *int64
+	ByteSize   *int64
+	Sha256     *[]byte
+}
+
+type UploadStatus string
+
+const (
+	UploadStatusPending    UploadStatus = "pending"
+	UploadStatusInProgress UploadStatus = "in_progress"
+	UploadStatusCompleted  UploadStatus = "completed"
+	UploadStatusFailed     UploadStatus = "failed"
 )
 
 type PartStatus string
@@ -25,13 +57,13 @@ func (e ErrUploadAlreadyExists) Error() string {
 	return fmt.Sprintf("upload already exists: %s", e.UploadID)
 }
 
-type ErrPartStatusNotFound struct {
+type ErrPartNotFound struct {
 	UploadID   uuid.UUID
 	PartNumber int
 }
 
-func (e ErrPartStatusNotFound) Error() string {
-	return fmt.Sprintf("part status not found: %s, %d", e.UploadID, e.PartNumber)
+func (e ErrPartNotFound) Error() string {
+	return fmt.Sprintf("part not found: %s, %d", e.UploadID, e.PartNumber)
 }
 
 type ErrUploadNotFound struct {
@@ -57,15 +89,15 @@ func CreateUpload(ctx context.Context, id uuid.UUID, partsCount int, size int, m
 	return nil
 }
 
-func UpdateUploadPartStatus(ctx context.Context, uploadID uuid.UUID, partNumber int, status PartStatus) error {
+func UpdateUploadPart(ctx context.Context, newPart Part) error {
 	conn, ok := GetConn(ctx)
 	if !ok {
 		return errors.New("connection not found in context")
 	}
-	_, err := conn.Exec(ctx, "CALL upload.update_part_status($1, $2, $3)", uploadID, partNumber, status)
+	_, err := conn.Exec(ctx, "CALL upload.update_part($1, $2, $3, $4, $5, $6, $7)", newPart.UploadID, newPart.PartNumber, newPart.Status, newPart.ObjectKey, newPart.ByteOffset, newPart.ByteSize, newPart.Sha256)
 	if err != nil {
 		if strings.Contains(err.Error(), "Part status not found:") {
-			return ErrPartStatusNotFound{UploadID: uploadID, PartNumber: partNumber}
+			return ErrPartNotFound{UploadID: newPart.UploadID, PartNumber: newPart.PartNumber}
 		}
 		return err
 	}
@@ -87,5 +119,44 @@ func DeleteUpload(ctx context.Context, uploadID uuid.UUID) error {
 	return nil
 }
 
-// func GetUpload
-// func GetUploadParts
+func GetUpload(ctx context.Context, uploadID uuid.UUID) (*Upload, error) {
+	conn, ok := GetConn(ctx)
+	if !ok {
+		return nil, errors.New("connection not found in context")
+	}
+	var upload Upload
+	row := conn.QueryRow(ctx, "SELECT id, created_at, status, parts_count, size, mime_type FROM upload.uploads WHERE id = $1", uploadID)
+	err := row.Scan(&upload.ID, &upload.CreatedAt, &upload.Status, &upload.PartsCount, &upload.Size, &upload.MimeType)
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows in result set") {
+			return nil, ErrUploadNotFound{UploadID: uploadID}
+		}
+		return nil, err
+	}
+	return &upload, nil
+}
+
+func GetUploadParts(ctx context.Context, uploadID uuid.UUID) ([]Part, error) {
+	conn, ok := GetConn(ctx)
+	if !ok {
+		return nil, errors.New("connection not found in context")
+	}
+	rows, err := conn.Query(ctx, "SELECT id, upload_id, part_number, status, object_key, created_at, uploaded_at, byte_offset, byte_size, sha256 FROM upload.parts WHERE upload_id = $1", uploadID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	parts := []Part{}
+	for rows.Next() {
+		var part Part
+		err := rows.Scan(&part.ID, &part.UploadID, &part.PartNumber, &part.Status, &part.ObjectKey, &part.CreatedAt, &part.UploadedAt, &part.ByteOffset, &part.ByteSize, &part.Sha256)
+		if err != nil {
+			return nil, err
+		}
+		parts = append(parts, part)
+	}
+	if len(parts) == 0 {
+		return nil, ErrUploadNotFound{UploadID: uploadID}
+	}
+	return parts, nil
+}

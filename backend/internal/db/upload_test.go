@@ -78,7 +78,7 @@ func TestCreateUpload(t *testing.T) {
 
 }
 
-func TestCreateUploadDuplicate(t *testing.T) {
+func TestCreateUpload_Duplicate(t *testing.T) {
 	id := uuid.New()
 	ctx, _, cleanup := SetupTest(t)
 	defer cleanup()
@@ -96,7 +96,7 @@ func TestCreateUploadDuplicate(t *testing.T) {
 	}
 }
 
-func TestUpdateUploadPartStatus(t *testing.T) {
+func TestUpdateUploadPart(t *testing.T) {
 	id := uuid.New()
 	ctx, tx, cleanup := SetupTest(t)
 	defer cleanup()
@@ -117,8 +117,19 @@ func TestUpdateUploadPartStatus(t *testing.T) {
 		t.Fatalf("Expected upload status to be pending, got %s", uploadStatus)
 	}
 
+	byteOffset := int64(1024)
+	byteSize := int64(1024)
+	sha256 := []byte("1234567890")
+
 	// Change 1 part to uploaded
-	err = UpdateUploadPartStatus(ctx, id, 0, PartStatusUploaded)
+	err = UpdateUploadPart(ctx, Part{
+		UploadID:   id,
+		PartNumber: 0,
+		Status:     PartStatusUploaded,
+		ByteOffset: &byteOffset,
+		ByteSize:   &byteSize,
+		Sha256:     &sha256,
+	})
 	if err != nil {
 		t.Fatalf("Failed to update part 0 status: %v", err)
 	}
@@ -131,8 +142,19 @@ func TestUpdateUploadPartStatus(t *testing.T) {
 		t.Fatalf("Expected upload status to be in_progress, got %s", uploadStatus)
 	}
 
+	byteOffset2 := int64(2048)
+	byteSize2 := int64(2048)
+	sha2562 := []byte("1234567890")
+
 	// Change 2nd part to uploaded
-	err = UpdateUploadPartStatus(ctx, id, 1, PartStatusUploaded)
+	err = UpdateUploadPart(ctx, Part{
+		UploadID:   id,
+		PartNumber: 1,
+		Status:     PartStatusUploaded,
+		ByteOffset: &byteOffset2,
+		ByteSize:   &byteSize2,
+		Sha256:     &sha2562,
+	})
 	if err != nil {
 		t.Fatalf("Failed to update part 1 status: %v", err)
 	}
@@ -158,14 +180,48 @@ func TestUpdateUploadPartStatus(t *testing.T) {
 	}
 }
 
+func TestUpdateUploadPart_UploadedNoInfo(t *testing.T) {
+	id := uuid.New()
+	ctx, _, cleanup := SetupTest(t)
+	defer cleanup()
+	// Create upload with 1 part
+	err := CreateUpload(ctx, id, 1, 1024, "image/jpeg")
+	if err != nil {
+		t.Fatalf("Failed to create upload: %v", err)
+	}
+
+	// Attempt to update the uploaded part with nil byte offset, byte size, and sha256
+	err = UpdateUploadPart(ctx, Part{
+		UploadID:   id,
+		PartNumber: 0,
+		Status:     PartStatusUploaded,
+		ByteOffset: nil,
+		ByteSize:   nil,
+		Sha256:     nil,
+	})
+	if err == nil {
+		t.Fatalf("Expected error when updating part with nil byte offset, byte size, and sha256, but got none")
+	}
+
+}
+
 func TestUpdateUploadPartStatus_NoStatusToUpdate(t *testing.T) {
 	id := uuid.New()
 	ctx, _, cleanup := SetupTest(t)
 	defer cleanup()
-
+	byteOffset := int64(1024)
+	byteSize := int64(1024)
+	sha256 := []byte("1234567890")
 	// Attempt to update a non-existent part status
-	err := UpdateUploadPartStatus(ctx, id, 3, PartStatusUploaded)
-	var target ErrPartStatusNotFound
+	err := UpdateUploadPart(ctx, Part{
+		UploadID:   id,
+		PartNumber: 3,
+		Status:     PartStatusUploaded,
+		ByteOffset: &byteOffset,
+		ByteSize:   &byteSize,
+		Sha256:     &sha256,
+	})
+	var target ErrPartNotFound
 	if !errors.As(err, &target) {
 		t.Fatalf("Expected ErrPartStatusNotFound, got %v", err)
 	}
@@ -219,5 +275,91 @@ func TestDeleteUpload_NotFound(t *testing.T) {
 	var target ErrUploadNotFound
 	if !errors.As(err, &target) {
 		t.Fatalf("Expected ErrUploadNotFound, got %v", err)
+	}
+}
+
+func TestGetUpload(t *testing.T) {
+	id := uuid.New()
+	ctx, _, cleanup := SetupTest(t)
+	defer cleanup()
+
+	// Create upload
+	err := CreateUpload(ctx, id, 2, 1024, "application/octet-stream")
+	if err != nil {
+		t.Fatalf("Failed to create upload: %v", err)
+	}
+
+	// Get upload
+	upload, err := GetUpload(ctx, id)
+	if err != nil {
+		t.Fatalf("Failed to get upload: %v", err)
+	}
+
+	// Verify details
+	if upload.ID != id {
+		t.Fatalf("Expected upload ID %v, got %v", id, upload.ID)
+	}
+	if upload.PartsCount != 2 {
+		t.Fatalf("Expected parts count 2, got %d", upload.PartsCount)
+	}
+	if upload.Size != 1024 {
+		t.Fatalf("Expected size 1024, got %d", upload.Size)
+	}
+	if upload.MimeType != "application/octet-stream" {
+		t.Fatalf("Expected mime type application/octet-stream, got %s", upload.MimeType)
+	}
+	if upload.Status != UploadStatusPending {
+		t.Fatalf("Expected status %s, got %s", UploadStatusPending, upload.Status)
+	}
+	if upload.CreatedAt.IsZero() {
+		t.Fatalf("Expected non-zero created_at, got %v", upload.CreatedAt)
+	}
+}
+
+func TestGetUpload_NotFound(t *testing.T) {
+	id := uuid.New()
+	ctx, _, cleanup := SetupTest(t)
+	defer cleanup()
+	// Attempt to get a non-existent upload
+	_, err := GetUpload(ctx, id)
+	var target ErrUploadNotFound
+	if !errors.As(err, &target) {
+		t.Fatalf("Expected ErrUploadNotFound, got %v", err)
+	}
+}
+
+func TestGetUploadParts(t *testing.T) {
+	id := uuid.New()
+	ctx, _, cleanup := SetupTest(t)
+	defer cleanup()
+
+	// Create upload
+	err := CreateUpload(ctx, id, 6, 1024, "application/octet-stream")
+	if err != nil {
+		t.Fatalf("Failed to create upload: %v", err)
+	}
+
+	// Get upload parts
+	parts, err := GetUploadParts(ctx, id)
+	if err != nil {
+		t.Fatalf("Failed to get upload parts: %v", err)
+	}
+
+	// Verify parts details
+	if len(parts) != 6 {
+		t.Fatalf("Expected 6 parts, got %d", len(parts))
+	}
+}
+
+func TestGetUploadParts_NotFound(t *testing.T) {
+	id := uuid.New()
+	ctx, _, cleanup := SetupTest(t)
+	defer cleanup()
+
+	// Attempt to get parts for a non-existent upload
+	parts, err := GetUploadParts(ctx, id)
+	var target ErrUploadNotFound
+	if !errors.As(err, &target) {
+		t.Fatalf("Expected ErrUploadNotFound, got Err: %v, parts: %v", err, parts)
 	}
 }

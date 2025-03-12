@@ -25,16 +25,46 @@ END
 $$ LANGUAGE plpgsql;
 
 -- Procedure: Update upload part status
-CREATE OR REPLACE PROCEDURE upload.update_part_status(
+CREATE OR REPLACE PROCEDURE upload.update_part(
     p_upload_id UUID,
     p_part_number INT,
-    p_new_status upload.part_status
+    p_status upload.part_status,
+    p_object_key TEXT,
+    p_byte_offset BIGINT,
+    p_byte_size BIGINT,
+    p_sha256 BYTEA
 ) AS $$
 DECLARE
     part_updated UUID := NULL;
 BEGIN
+    IF p_upload_id IS NULL THEN
+        RAISE EXCEPTION 'Upload ID is required';
+    END IF;
+    IF p_part_number IS NULL THEN
+        RAISE EXCEPTION 'Part number is required';
+    END IF;
+    IF p_status IS NULL THEN
+        RAISE EXCEPTION 'Part status is required';
+    END IF;
+    -- Wow, this is a multivalued dependency.
+    IF p_status = 'uploaded' THEN
+        IF p_byte_offset IS NULL OR p_byte_offset = 0 THEN
+            RAISE EXCEPTION 'Byte offset is required if part status is uploaded';
+        END IF;
+        IF p_byte_size IS NULL OR p_byte_size = 0 THEN
+            RAISE EXCEPTION 'Byte size is required if part status is uploaded';
+        END IF;
+        IF p_sha256 IS NULL OR p_sha256 = '' THEN
+            RAISE EXCEPTION 'SHA256 is required if part status is uploaded';
+        END IF;
+    END IF;
+    
     UPDATE upload.parts
-        SET status = p_new_status
+        SET status = p_status,
+            object_key = p_object_key,
+            byte_offset = p_byte_offset,
+            byte_size = p_byte_size,
+            sha256 = p_sha256
         WHERE upload_id = p_upload_id AND part_number = p_part_number
         RETURNING upload_id INTO part_updated;
     IF part_updated IS NULL THEN

@@ -20,7 +20,6 @@ CREATE TABLE upload.uploads (
 );
 
 CREATE TABLE upload.parts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     upload_id UUID NOT NULL REFERENCES upload.uploads(id) ON UPDATE CASCADE ON DELETE CASCADE,
     part_number INT NOT NULL,
     status upload.part_status NOT NULL,
@@ -32,6 +31,8 @@ CREATE TABLE upload.parts (
     byte_offset BIGINT,
     byte_size BIGINT,
     sha256 BYTEA
+
+    PRIMARY KEY (upload_id, part_number)
 );
 
 COMMIT;
